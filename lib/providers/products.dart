@@ -68,18 +68,18 @@ class Products with ChangeNotifier {
   // }
 
   void addProduct(Product product) {
-    // final url = Uri.https(
-    //     'https://myshop-d7158-default-rtdb.firebaseio.com/', '/products.json');
-    // http.post(
-    //   url,
-    //   body: json.encode({
-    //     'title': product.title,
-    //     'description': product.description,
-    //     'imageUrl': product.imageUrl,
-    //     'price': product.price,
-    //     'isFavorite': product.isFavorite,
-    //   }),
-    // );
+    final url = Uri.https(
+        'https://myshop-d7158-default-rtdb.firebaseio.com/', '/products.json');
+    http.post(
+      url,
+      body: json.encode({
+        'title': product.title,
+        'description': product.description,
+        'imageUrl': product.imageUrl,
+        'price': product.price,
+        'isFavorite': product.isFavorite,
+      }),
+    );
     final newProduct = Product(
       title: product.title,
       description: product.description,
