@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../config.dart';
 import '../models/phone_options.dart';
 import '../providers/auth.dart';
 import '../providers/cart.dart';
@@ -117,17 +116,6 @@ class _DetailView extends StatelessWidget {
                           ],
                         ),
                       ),
-                      if (product.origin.isNotEmpty || product.brand != 'Other')
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            icon: const Icon(Icons.price_check),
-                            label: const Text(
-                                'Compare ex-UK and ex-USA prices for this model'),
-                            onPressed: () =>
-                                openLink(AppConfig.priceCheckerUrl),
-                          ),
-                        ),
                       if (product.description.isNotEmpty) ...[
                         const SizedBox(height: 20),
                         Text('About this phone',

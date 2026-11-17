@@ -6,7 +6,6 @@ import '../providers/auth.dart';
 import '../screens/orders_screen.dart';
 import '../screens/user_products_screen.dart';
 import '../theme.dart';
-import '../utils/format.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -52,13 +51,6 @@ class AppDrawer extends StatelessWidget {
           title: const Text('Manage my listings'),
           onTap: () => Navigator.of(context)
               .pushReplacementNamed(UserProductsScreen.routeName),
-        ),
-        ListTile(
-          leading: const Icon(Icons.price_check),
-          title: const Text('Price checker'),
-          subtitle: const Text('Compare ex-UK and ex-USA prices'),
-          trailing: const Icon(Icons.open_in_new, size: 18),
-          onTap: () => openLink(AppConfig.priceCheckerUrl),
         ),
         const Divider(),
         ListTile(
