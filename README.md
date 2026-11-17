@@ -1,5 +1,7 @@
 # 🛍️ MyShop: Flutter E-commerce App
 
+**🔗 Live demo:** https://nainezz.github.io/MyShop/
+
 A full shopping app built with **Flutter**. Users sign up, browse products, save favourites, add items to a cart and place orders. Sellers can manage their own products. Data is stored in **Firebase**.
 
 ## Features
