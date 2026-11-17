@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../config.dart';
+import '../models/http_exception.dart';
 import '../models/phone_options.dart';
 import '../providers/cart.dart';
 import '../providers/products.dart';
@@ -68,10 +69,13 @@ class _ProductsOverviewScreenState extends State<ProductsOverviewScreen> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
+            final error = snapshot.error;
             return _Message(
-              icon: Icons.wifi_off,
+              icon: Icons.cloud_off,
               title: 'Could not load phones',
-              body: 'Check your connection and try again.',
+              body: error is HttpException
+                  ? error.message
+                  : 'Check your connection and try again.',
               action: FilledButton(
                   onPressed: _refresh, child: const Text('Try again')),
             );

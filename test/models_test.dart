@@ -21,6 +21,18 @@ void main() {
       expect(p.specs, isEmpty);
     });
 
+    test('reads prices and numbers stored as text', () {
+      final p = Product.fromJson('p2', {
+        'title': 'Old item',
+        'price': '29.99',
+        'batteryHealth': '87',
+        'inStock': 'yes',
+      });
+      expect(p.price, 29.99);
+      expect(p.batteryHealth, 87);
+      expect(p.inStock, isTrue);
+    });
+
     test('round-trips phone fields through JSON', () {
       final p = Product(
         id: 'x',

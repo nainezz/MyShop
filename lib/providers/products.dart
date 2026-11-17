@@ -127,8 +127,14 @@ class Products with ChangeNotifier {
   /// Loads every product and the user's favourites.
   Future<void> fetchAndSetProducts() async {
     final response = await http.get(_url('products'));
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      throw HttpException(
+          'The database refused access (permission denied). The Firebase '
+          'Realtime Database rules need updating: see database.rules.json.');
+    }
     if (response.statusCode >= 400) {
-      throw HttpException('Could not load products (${response.statusCode}).');
+      throw HttpException(
+          'The server answered with error ${response.statusCode}.');
     }
     final data = json.decode(response.body);
     if (data is! Map<String, dynamic>) {
@@ -142,14 +148,17 @@ class Products with ChangeNotifier {
     final favorites =
         favData is Map<String, dynamic> ? favData : const <String, dynamic>{};
 
-    _items = data.entries
-        .where((e) => e.value is Map<String, dynamic>)
-        .map((e) => Product.fromJson(
-              e.key,
-              e.value as Map<String, dynamic>,
-              isFavorite: favorites[e.key] == true,
-            ))
-        .toList();
+    final loaded = <Product>[];
+    for (final e in data.entries) {
+      if (e.value is! Map<String, dynamic>) continue;
+      try {
+        loaded.add(Product.fromJson(e.key, e.value as Map<String, dynamic>,
+            isFavorite: favorites[e.key] == true));
+      } catch (_) {
+        // Skip a damaged record instead of failing the whole shop.
+      }
+    }
+    _items = loaded;
     notifyListeners();
   }
 

@@ -44,20 +44,29 @@ class Product with ChangeNotifier {
 
   factory Product.fromJson(String id, Map<String, dynamic> json,
       {bool isFavorite = false}) {
+    // Tolerant readers: older records may hold numbers as text and so on.
+    String text(String key, [String fallback = '']) =>
+        json[key]?.toString() ?? fallback;
+    double? number(String key) {
+      final v = json[key];
+      if (v is num) return v.toDouble();
+      return double.tryParse(v?.toString().replaceAll(',', '') ?? '');
+    }
+
     return Product(
       id: id,
-      title: (json['title'] as String?) ?? 'Untitled',
-      description: (json['description'] as String?) ?? '',
-      price: (json['price'] as num?)?.toDouble() ?? 0,
-      imageUrl: (json['imageUrl'] as String?) ?? '',
-      brand: (json['brand'] as String?) ?? 'Other',
-      storage: (json['storage'] as String?) ?? '',
-      grade: (json['grade'] as String?) ?? '',
-      origin: (json['origin'] as String?) ?? '',
-      batteryHealth: (json['batteryHealth'] as num?)?.toInt(),
-      inStock: (json['inStock'] as bool?) ?? true,
-      creatorId: (json['creatorId'] as String?) ?? '',
-      createdAt: DateTime.tryParse((json['createdAt'] as String?) ?? ''),
+      title: text('title', 'Untitled'),
+      description: text('description'),
+      price: number('price') ?? 0,
+      imageUrl: text('imageUrl'),
+      brand: text('brand', 'Other'),
+      storage: text('storage'),
+      grade: text('grade'),
+      origin: text('origin'),
+      batteryHealth: number('batteryHealth')?.round(),
+      inStock: json['inStock'] is bool ? json['inStock'] as bool : true,
+      creatorId: text('creatorId'),
+      createdAt: DateTime.tryParse(text('createdAt')),
       isFavorite: isFavorite,
     );
   }
