@@ -10,6 +10,9 @@ class AppConfig {
   /// WhatsApp number for orders, in international format without "+".
   static const whatsappNumber = '254743676970';
 
+  /// Free tool comparing ex-UK and ex-USA prices.
+  static const priceCheckerUrl = 'https://nainezz.github.io/phone-price-checker/';
+
   static const currency = 'KES';
   static const shopName = 'MyShop';
 }

@@ -19,6 +19,10 @@ String formatMoney(double value) {
 String formatDateTime(DateTime value) =>
     DateFormat('d MMM yyyy, HH:mm').format(value);
 
+/// Opens a web page in the browser.
+Future<bool> openLink(String url) =>
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+
 /// Opens WhatsApp with a ready-made message to the shop.
 Future<bool> openWhatsApp(String message) {
   final uri = Uri.parse(
