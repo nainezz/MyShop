@@ -1,172 +1,199 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../config.dart';
 import '../models/http_exception.dart';
-import './product.dart';
+import '../models/phone_options.dart';
+import 'product.dart';
 
+/// The shop's product list, plus the search, filter and sort the shopper picked.
 class Products with ChangeNotifier {
-  List<Product> _items = [
-    // Product(
-    //   id: 'p1',
-    //   title: 'Red Shirt',
-    //   description: 'A red shirt - it is pretty red!',
-    //   price: 29.99,
-    //   imageUrl:
-    //       'https://cdn.pixabay.com/photo/2016/10/02/22/17/red-t-shirt-1710578_1280.jpg',
-    // ),
-    // Product(
-    //   id: 'p2',
-    //   title: 'Trousers',
-    //   description: 'A nice pair of trousers.',
-    //   price: 59.99,
-    //   imageUrl:
-    //       'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Trousers%2C_dress_%28AM_1960.022-8%29.jpg/512px-Trousers%2C_dress_%28AM_1960.022-8%29.jpg',
-    // ),
-    // Product(
-    //   id: 'p3',
-    //   title: 'Yellow Scarf',
-    //   description: 'Warm and cozy - exactly what you need for the winter.',
-    //   price: 19.99,
-    //   imageUrl:
-    //       'https://live.staticflickr.com/4043/4438260868_cc79b3369d_z.jpg',
-    // ),
-    // Product(
-    //   id: 'p4',
-    //   title: 'A Pan',
-    //   description: 'Prepare any meal you want.',
-    //   price: 49.99,
-    //   imageUrl:
-    //       'https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Cast-Iron-Pan.jpg/1024px-Cast-Iron-Pan.jpg',
-    // ),
-  ];
-  // var _showFavoritesOnly = false;
-  final String authToken;
-  final String userId;
-  Products(this.authToken, this.userId, this._items);
+  String? _authToken;
+  String? _userId;
+  List<Product> _items = [];
 
-  List<Product> get items {
-    // if (_showFavoritesOnly) {
-    //   return _items.where((prodItem) => prodItem.isFavorite).toList();
-    // }
-    return [..._items];
-  }
+  // Shopper's current view of the list.
+  String _query = '';
+  String? _brand;
+  String? _origin;
+  bool _favoritesOnly = false;
+  SortOrder _sort = SortOrder.newest;
 
-  List<Product> get favoriteItems {
-    return _items.where((prodItem) => prodItem.isFavorite).toList();
-  }
-
-  Product findById(String id) {
-    return _items.firstWhere((prod) => prod.id == id);
-  }
-
-  // void showFavoritesOnly() {
-  //   _showFavoritesOnly = true;
-  //   notifyListeners();
-  // }
-
-  // void showAll() {
-  //   _showFavoritesOnly = false;
-  //   notifyListeners();
-  // }
-
-  Future<void> fetchAndSetProducts([bool filterByUser = false]) async {
-    final filterString =
-        filterByUser ? 'orderBy="creatorId"&equalTo="$userId"' : '';
-    var url = Uri.parse(
-        'https://shop-77d61-default-rtdb.firebaseio.com/products.json?auth=$authToken&$filterString');
-    try {
-      final response = await http.get(url);
-      final extractedData = json.decode(response.body) as Map<String, dynamic>;
-      if (extractedData == null) {
-        return;
-      }
-      url = Uri.parse(
-          'https://shop-77d61-default-rtdb.firebaseio.com/userFavorites/$userId.json?auth=$authToken');
-      final favoriteResponse = await http.get(url);
-      final favoriteData = json.decode(favoriteResponse.body);
-      final List<Product> loadedProducts = [];
-      extractedData.forEach((prodId, prodData) {
-        loadedProducts.add(Product(
-          id: prodId,
-          title: prodData['title'],
-          description: prodData['description'],
-          price: prodData['price'],
-          isFavorite:
-              favoriteData == null ? false : favoriteData[prodId] ?? false,
-          imageUrl: prodData['imageUrl'],
-        ));
-      });
-      _items = loadedProducts;
-      notifyListeners();
-    } catch (error) {
-      throw (error);
+  /// Called by the provider whenever the login changes.
+  void updateAuth(String? token, String? userId) {
+    final userChanged = userId != _userId;
+    _authToken = token;
+    _userId = userId;
+    if (userChanged) {
+      _items = [];
     }
+  }
+
+  List<Product> get items => [..._items];
+
+  String get query => _query;
+  String? get brand => _brand;
+  String? get origin => _origin;
+  bool get favoritesOnly => _favoritesOnly;
+  SortOrder get sort => _sort;
+
+  bool get hasActiveFilters =>
+      _query.isNotEmpty || _brand != null || _origin != null || _favoritesOnly;
+
+  /// Brands that actually appear in the shop, in the standard order.
+  List<String> get availableBrands {
+    final present = _items.map((p) => p.brand).toSet();
+    return PhoneOptions.brands.where(present.contains).toList();
+  }
+
+  /// The list after search, filters and sorting.
+  List<Product> get visibleItems {
+    final q = _query.trim().toLowerCase();
+    final result = _items.where((p) {
+      if (_favoritesOnly && !p.isFavorite) return false;
+      if (_brand != null && p.brand != _brand) return false;
+      if (_origin != null && p.origin != _origin) return false;
+      if (q.isNotEmpty) {
+        final haystack =
+            '${p.title} ${p.brand} ${p.storage} ${p.description}'.toLowerCase();
+        if (!haystack.contains(q)) return false;
+      }
+      return true;
+    }).toList();
+
+    switch (_sort) {
+      case SortOrder.newest:
+        result.sort((a, b) => (b.createdAt ?? DateTime(2000))
+            .compareTo(a.createdAt ?? DateTime(2000)));
+      case SortOrder.priceLowToHigh:
+        result.sort((a, b) => a.price.compareTo(b.price));
+      case SortOrder.priceHighToLow:
+        result.sort((a, b) => b.price.compareTo(a.price));
+    }
+    return result;
+  }
+
+  void setQuery(String value) {
+    _query = value;
+    notifyListeners();
+  }
+
+  void setBrand(String? value) {
+    _brand = value;
+    notifyListeners();
+  }
+
+  void setOrigin(String? value) {
+    _origin = value;
+    notifyListeners();
+  }
+
+  void setFavoritesOnly(bool value) {
+    _favoritesOnly = value;
+    notifyListeners();
+  }
+
+  void setSort(SortOrder value) {
+    _sort = value;
+    notifyListeners();
+  }
+
+  void clearFilters() {
+    _query = '';
+    _brand = null;
+    _origin = null;
+    _favoritesOnly = false;
+    notifyListeners();
+  }
+
+  Product findById(String id) => _items.firstWhere((p) => p.id == id);
+
+  /// Adds a product locally without saving it. For tests only.
+  @visibleForTesting
+  void debugAdd(Product product) {
+    _items.add(product);
+    notifyListeners();
+  }
+
+  /// Products created by the logged-in seller.
+  List<Product> get myItems =>
+      _items.where((p) => p.creatorId == _userId).toList();
+
+  Uri _url(String path, [String extra = '']) => Uri.parse(
+      '${AppConfig.databaseUrl}/$path.json?auth=$_authToken$extra');
+
+  /// Loads every product and the user's favourites.
+  Future<void> fetchAndSetProducts() async {
+    final response = await http.get(_url('products'));
+    if (response.statusCode >= 400) {
+      throw HttpException('Could not load products (${response.statusCode}).');
+    }
+    final data = json.decode(response.body);
+    if (data is! Map<String, dynamic>) {
+      _items = [];
+      notifyListeners();
+      return;
+    }
+
+    final favResponse = await http.get(_url('userFavorites/$_userId'));
+    final favData = json.decode(favResponse.body);
+    final favorites =
+        favData is Map<String, dynamic> ? favData : const <String, dynamic>{};
+
+    _items = data.entries
+        .where((e) => e.value is Map<String, dynamic>)
+        .map((e) => Product.fromJson(
+              e.key,
+              e.value as Map<String, dynamic>,
+              isFavorite: favorites[e.key] == true,
+            ))
+        .toList();
+    notifyListeners();
   }
 
   Future<void> addProduct(Product product) async {
-    final url = Uri.parse(
-        'https://shop-77d61-default-rtdb.firebaseio.com/products.json?auth=$authToken');
-    try {
-      final response = await http.post(
-        url,
-        body: json.encode({
-          'title': product.title,
-          'description': product.description,
-          'imageUrl': product.imageUrl,
-          'price': product.price,
-          'creatorId': userId,
-        }),
-      );
-      final newProduct = Product(
-        title: product.title,
-        description: product.description,
-        price: product.price,
-        imageUrl: product.imageUrl,
-        id: json.decode(response.body)['name'],
-      );
-      _items.add(newProduct);
-      // _items.insert(0, newProduct); // at the start of the list
-      notifyListeners();
-    } catch (error) {
-      print(error);
-      throw error;
-    }
-  }
-
-  Future<void> updateProduct(String id, Product newProduct) async {
-    final prodIndex = _items.indexWhere((prod) => prod.id == id);
-    if (prodIndex >= 0) {
-      final url = Uri.parse(
-          'https://shop-77d61-default-rtdb.firebaseio.com/products/$id.json?auth=$authToken');
-      await http.patch(url,
-          body: json.encode({
-            'title': newProduct.title,
-            'description': newProduct.description,
-            'imageUrl': newProduct.imageUrl,
-            'price': newProduct.price
-          }));
-      _items[prodIndex] = newProduct;
-      notifyListeners();
-    } else {
-      print('...');
-    }
-  }
-
-  Future<void> deleteProduct(String id) async {
-    final url = Uri.parse(
-        'https://shop-77d61-default-rtdb.firebaseio.com/products/$id.json?auth=$authToken');
-    final existingProductIndex = _items.indexWhere((prod) => prod.id == id);
-    var existingProduct = _items[existingProductIndex];
-    _items.removeAt(existingProductIndex);
-    notifyListeners();
-    final response = await http.delete(url);
+    final now = DateTime.now();
+    final body = {
+      ...product.copyWith(createdAt: now).toJson(),
+      'creatorId': _userId,
+    };
+    final response =
+        await http.post(_url('products'), body: json.encode(body));
     if (response.statusCode >= 400) {
-      _items.insert(existingProductIndex, existingProduct);
-      notifyListeners();
-      throw HttpException('Could not delete product.');
+      throw HttpException('Could not save the product.');
     }
-    existingProduct = null;
+    final id = json.decode(response.body)['name'] as String;
+    _items.add(product.copyWith(id: id, creatorId: _userId, createdAt: now));
+    notifyListeners();
+  }
+
+  Future<void> updateProduct(String id, Product updated) async {
+    final index = _items.indexWhere((p) => p.id == id);
+    if (index < 0) return;
+    final response = await http.patch(
+      _url('products/$id'),
+      body: json.encode(updated.toJson()),
+    );
+    if (response.statusCode >= 400) {
+      throw HttpException('Could not update the product.');
+    }
+    _items[index] = updated;
+    notifyListeners();
+  }
+
+  /// Removes the product straight away; puts it back if the delete fails.
+  Future<void> deleteProduct(String id) async {
+    final index = _items.indexWhere((p) => p.id == id);
+    if (index < 0) return;
+    final existing = _items.removeAt(index);
+    notifyListeners();
+    final response = await http.delete(_url('products/$id'));
+    if (response.statusCode >= 400) {
+      _items.insert(index, existing);
+      notifyListeners();
+      throw HttpException('Could not delete the product.');
+    }
   }
 }

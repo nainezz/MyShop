@@ -1,63 +1,80 @@
 import 'package:flutter/foundation.dart';
 
 class CartItem {
+  const CartItem({
+    required this.id,
+    required this.productId,
+    required this.title,
+    required this.quantity,
+    required this.price,
+    this.imageUrl = '',
+  });
+
   final String id;
+  final String productId;
   final String title;
   final int quantity;
   final double price;
+  final String imageUrl;
 
-  CartItem({
-    @required this.id,
-    @required this.title,
-    @required this.quantity,
-    @required this.price,
-  });
+  double get total => price * quantity;
+
+  CartItem copyWith({int? quantity}) => CartItem(
+        id: id,
+        productId: productId,
+        title: title,
+        quantity: quantity ?? this.quantity,
+        price: price,
+        imageUrl: imageUrl,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'productId': productId,
+        'title': title,
+        'quantity': quantity,
+        'price': price,
+      };
+
+  factory CartItem.fromJson(Map<String, dynamic> json) => CartItem(
+        id: (json['id'] as String?) ?? '',
+        productId: (json['productId'] as String?) ?? '',
+        title: (json['title'] as String?) ?? '',
+        quantity: (json['quantity'] as num?)?.toInt() ?? 1,
+        price: (json['price'] as num?)?.toDouble() ?? 0,
+      );
 }
 
+/// Items the shopper has added, keyed by product id.
 class Cart with ChangeNotifier {
   Map<String, CartItem> _items = {};
 
-  Map<String, CartItem> get items {
-    return {..._items};
-  }
+  Map<String, CartItem> get items => {..._items};
 
-  int get itemCount {
-    return _items.length;
-  }
+  /// Number of different products in the cart.
+  int get itemCount => _items.length;
 
-  double get totalAmount {
-    var total = 0.0;
-    _items.forEach((key, cartItem) {
-      total += cartItem.price * cartItem.quantity;
-    });
-    return total;
-  }
+  /// Total number of units across all products.
+  int get unitCount => _items.values.fold(0, (sum, i) => sum + i.quantity);
 
-  void addItem(
-    String productId,
-    double price,
-    String title,
-  ) {
-    if (_items.containsKey(productId)) {
-      // change quantity...
-      _items.update(
-        productId,
-        (existingCartItem) => CartItem(
-              id: existingCartItem.id,
-              title: existingCartItem.title,
-              price: existingCartItem.price,
-              quantity: existingCartItem.quantity + 1,
-            ),
-      );
+  double get totalAmount =>
+      _items.values.fold(0.0, (sum, item) => sum + item.total);
+
+  int quantityOf(String productId) => _items[productId]?.quantity ?? 0;
+
+  void addItem(String productId, double price, String title,
+      {String imageUrl = ''}) {
+    final existing = _items[productId];
+    if (existing != null) {
+      _items[productId] = existing.copyWith(quantity: existing.quantity + 1);
     } else {
-      _items.putIfAbsent(
-        productId,
-        () => CartItem(
-              id: DateTime.now().toString(),
-              title: title,
-              price: price,
-              quantity: 1,
-            ),
+      _items[productId] = CartItem(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        productId: productId,
+        title: title,
+        price: price,
+        quantity: 1,
+        imageUrl: imageUrl,
       );
     }
     notifyListeners();
@@ -69,18 +86,10 @@ class Cart with ChangeNotifier {
   }
 
   void removeSingleItem(String productId) {
-    if (!_items.containsKey(productId)) {
-      return;
-    }
-    if (_items[productId].quantity > 1) {
-      _items.update(
-          productId,
-          (existingCartItem) => CartItem(
-                id: existingCartItem.id,
-                title: existingCartItem.title,
-                price: existingCartItem.price,
-                quantity: existingCartItem.quantity - 1,
-              ));
+    final existing = _items[productId];
+    if (existing == null) return;
+    if (existing.quantity > 1) {
+      _items[productId] = existing.copyWith(quantity: existing.quantity - 1);
     } else {
       _items.remove(productId);
     }

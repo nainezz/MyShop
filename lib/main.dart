@@ -1,73 +1,64 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_complete_guide/helpers/custom_route.dart';
-import 'package:flutter_complete_guide/providers/auth.dart';
-import 'package:flutter_complete_guide/screens/auth_screen%20.dart';
-import 'package:flutter_complete_guide/screens/splash_screen.dart';
 import 'package:provider/provider.dart';
 
-import './screens/cart_screen.dart';
-import './screens/products_overview_screen.dart';
-import './screens/product_detail_screen.dart';
-import './providers/products.dart';
-import './providers/cart.dart';
-import './providers/orders.dart';
-import './screens/orders_screen.dart';
-import './screens/user_products_screen.dart';
-import './screens/edit_product_screen.dart';
+import 'config.dart';
+import 'providers/auth.dart';
+import 'providers/cart.dart';
+import 'providers/orders.dart';
+import 'providers/products.dart';
+import 'screens/auth_screen.dart';
+import 'screens/cart_screen.dart';
+import 'screens/edit_product_screen.dart';
+import 'screens/orders_screen.dart';
+import 'screens/product_detail_screen.dart';
+import 'screens/products_overview_screen.dart';
+import 'screens/splash_screen.dart';
+import 'screens/user_products_screen.dart';
+import 'theme.dart';
 
-void main() => runApp(MyApp());
+void main() => runApp(const MyShopApp());
 
-class MyApp extends StatelessWidget {
+class MyShopApp extends StatelessWidget {
+  const MyShopApp({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider.value(value: Auth()),
+        ChangeNotifierProvider(create: (_) => Auth()),
         ChangeNotifierProxyProvider<Auth, Products>(
-          update: (ctx, auth, previousProducts) => Products(
-            auth.token,
-            auth.userId,
-            previousProducts == null ? [] : previousProducts.items,
-          ),
+          create: (_) => Products(),
+          update: (_, auth, products) =>
+              (products ?? Products())..updateAuth(auth.token, auth.userId),
         ),
-        ChangeNotifierProvider.value(
-          value: Cart(),
-        ),
+        ChangeNotifierProvider(create: (_) => Cart()),
         ChangeNotifierProxyProvider<Auth, Orders>(
-          update: (ctx, auth, previousOrders) => Orders(auth.token, auth.userId,
-              previousOrders == null ? [] : previousOrders.orders),
+          create: (_) => Orders(),
+          update: (_, auth, orders) =>
+              (orders ?? Orders())..updateAuth(auth.token, auth.userId),
         ),
       ],
       child: Consumer<Auth>(
-        builder: (ctx, auth, _) => MaterialApp(
-          title: 'MyShop',
-          theme: ThemeData(
-              primarySwatch: Colors.purple,
-              accentColor: Colors.deepOrange,
-              fontFamily: 'Lato',
-              pageTransitionsTheme: PageTransitionsTheme(builders: {
-                TargetPlatform.android: CustomPageTransitionBuilder(),
-                TargetPlatform.iOS: CustomPageTransitionBuilder(),
-              })),
+        builder: (context, auth, _) => MaterialApp(
+          title: AppConfig.shopName,
+          debugShowCheckedModeBanner: false,
+          theme: buildTheme(Brightness.light),
+          darkTheme: buildTheme(Brightness.dark),
           home: auth.isAuth
-              ? ProductsOverviewScreen()
-              : FutureBuilder(
+              ? const ProductsOverviewScreen()
+              : FutureBuilder<bool>(
                   future: auth.tryAutoLogin(),
-                  builder: (
-                    context,
-                    authResultSnapshot,
-                  ) =>
-                      authResultSnapshot.connectionState ==
-                              ConnectionState.waiting
-                          ? SplashScreen()
-                          : AuthScreen(),
+                  builder: (context, snapshot) =>
+                      snapshot.connectionState == ConnectionState.waiting
+                          ? const SplashScreen()
+                          : const AuthScreen(),
                 ),
           routes: {
-            ProductDetailScreen.routeName: (ctx) => ProductDetailScreen(),
-            CartScreen.routeName: (ctx) => CartScreen(),
-            OrdersScreen.routeName: (ctx) => OrdersScreen(),
-            UserProductsScreen.routeName: (ctx) => UserProductsScreen(),
-            EditProductScreen.routeName: (ctx) => EditProductScreen(),
+            ProductDetailScreen.routeName: (_) => const ProductDetailScreen(),
+            CartScreen.routeName: (_) => const CartScreen(),
+            OrdersScreen.routeName: (_) => const OrdersScreen(),
+            UserProductsScreen.routeName: (_) => const UserProductsScreen(),
+            EditProductScreen.routeName: (_) => const EditProductScreen(),
           },
         ),
       ),
